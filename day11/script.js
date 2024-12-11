@@ -29,26 +29,13 @@ console.log(part1);
 
 // Part 2
 const memo = {};
-const memoizedSimulate = (stone, blinks) => {
-    const argumentKey = [stone, blinks].toString();
-    if (memo[argumentKey] !== undefined) return memo[argumentKey];
-
-    let result = applyRules(stone);
-
-    // Final step.
-    if (blinks == 1) {
-        memo[argumentKey] == result.length;
-        return result.length;
-    }
-
-    // Recursion step
-    const stoneCount = result
-        .map((stone) => memoizedSimulate(stone, blinks-1))
-        .reduce((a, b) => a + b, 0);
-
-    memo[argumentKey] = stoneCount;
-    return stoneCount;
-};
+const memoizedSimulate = (inputStone, blinks) => (
+    memo[[inputStone, blinks].toString()] ??=
+        (blinks == 1)
+        ? applyRules(inputStone).length // Final step
+        : applyRules(inputStone) // Recursion step
+            .reduce((sum, stone) => sum + memoizedSimulate(stone, blinks-1), 0)
+);
 
 const part2 = initialStones.reduce((stoneCount, stone) => stoneCount + memoizedSimulate(stone, 75), 0);
 console.log(part2);

@@ -56,6 +56,8 @@ const findFirstTileOfType = (board, type) => {
     return null;
 }
 
+const isEqualPosition = ([y1, x1], [y2, x2]) => (y1===y2 && x1===x2);
+
 function findShortestPath(board) {
     const startPosition = findFirstTileOfType(board, TileType.START);
     const endPosition = findFirstTileOfType(board, TileType.END);
@@ -64,18 +66,31 @@ function findShortestPath(board) {
     let toProcess = [[startPosition, [0, 1], 0]]; // node, direction, distance. Start facing East
     let enteredFrom = {};
 
-    let endKey = null;
     while (toProcess.length > 0) {
         toProcess.sort((a,b) => a[2] - b[2]) // Make sure order reflects current distances
+
+        if (isEqualPosition(toProcess[0][0], endPosition)) {
+            // Reached end node. Gather all possible endings.
+            toProcess.filter(([pos]) => isEqualPosition(pos, endPosition))
+
+        }
+
         const [stepPosition, stepDirection, stepDistance] = toProcess.shift();
         const [y0, x0] = stepPosition;
         const [dy0, dx0] = stepDirection;
         const stepKey = toKey(stepPosition, stepDirection)
         distances[stepKey] = stepDistance;
 
-        if (y0 === endPosition[0] && x0 === endPosition[1]) {
-            endKey = stepKey;
-            return {enteredFrom, distances, endKey, startPosition, endPosition};
+        if (isEqualPosition([y0, x0], endPosition)) {
+            // Return all possible endings
+            endKeys = [stepKey];
+            toProcess.filter(([pos,,distance]) => isEqualPosition(pos, endPosition) && distance === stepDistance)
+                .forEach(([pos,dir,dist]) => {
+                    let k = toKey(pos, dir);
+                    distances[k] = dist;
+                    endKey.push(k);
+                });
+            return {enteredFrom, distances, endKeys, startPosition, endPosition};
         }
 
         // Determine reachable states
@@ -88,10 +103,12 @@ function findShortestPath(board) {
                 const idx = toProcess.findIndex(([p, d]) => neighbourKey === toKey(p, d));
                 if (idx === -1) {
                     toProcess.push([[y, x], [dy, dx], newDistance]);
-                    enteredFrom[neighbourKey] = stepKey;
+                    enteredFrom[neighbourKey] = [stepKey];
+                } else if (newDistance === toProcess[idx][2]) {
+                    enteredFrom[neighbourKey].push(stepKey);
                 } else if (newDistance < toProcess[idx][2]) {
                     toProcess[idx][2] = newDistance;
-                    enteredFrom[neighbourKey] = stepKey;
+                    enteredFrom[neighbourKey] = [stepKey];
                 }
             });
     }
@@ -99,24 +116,37 @@ function findShortestPath(board) {
     return null; // No path found
 }
 
-function reconstructPath(endNodeKey, enteredFrom) {
+function reconstructPath(endNodeKeys, enteredFrom) {
     let steps = [];
-    let currentStep = endNodeKey;
-    while (currentStep !== undefined) {
-        steps.push(currentStep);
-        currentStep = enteredFrom[currentStep];
+    let currentSteps = endNodeKeys;
+    while (currentSteps.length > 0) {
+        steps.push(...currentSteps);
+        currentSteps = currentSteps.flatMap(step => enteredFrom[step]).filter(step => step !== undefined)
     }
     return steps;
 }
 
 function part1() {
-    const { enteredFrom, distances, endKey, startPosition, endPosition } = findShortestPath(board);
-    const steps = reconstructPath(endKey, enteredFrom);
+    const { enteredFrom, distances, endKeys, startPosition, endPosition } = findShortestPath(board);
+    const steps = reconstructPath([endKeys[0]], enteredFrom);
 
-    // Draw board + path
     drawSolution(steps, startPosition, endPosition);
-    console.log(distances[endKey]);
+    console.log(distances[endKeys[0]]);
 }
 
 part1()
 
+
+// Part 2
+function part2() {
+    const { enteredFrom, endKeys, startPosition, endPosition } = findShortestPath(board);
+    const steps = reconstructPath(endKeys, enteredFrom);
+
+    drawSolution(steps, startPosition, endPosition);
+
+    // unique positions (excl orientations)
+    const visitedTiles = steps.map(fromKey).map(([pos]) => pos.toString())
+    console.log((new Set(visitedTiles)).size);
+}
+
+part2()
